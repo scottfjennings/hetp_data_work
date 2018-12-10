@@ -9,17 +9,25 @@
 #$ event_id
 
 
-library(maptools)
+# if coming from interpolate_bird_tides.R, then tidyverse and lubridate will already be loaded
 library(tidyverse)
 library(lubridate)
+
+library(maptools)
 library(chron)
 
-hetp_use <- read.csv("data_files/HETP_GPSonly_201706_201807.csv")
 
+# if coming from interpolate_bird_tides.R, then reading and fixing timestamp should be skipped,
+hetp_use <- read.csv("data_files/HETP_GPSonly_201706_201807.csv")
 hetp_use <- hetp_use %>% 
   mutate(timestamp = as.POSIXct(as.character(timestamp)))
 
-
+# in stead just rename the final product from interpolate_bird_tides.R,
+# make field date,
+# and remove records with no coordinates
+hetp_use <- bird_tides %>% 
+  mutate(date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% 
+  filter(!is.na(location_lat) & !is.na(location_long))
 ################################
 ## determin time of dawn and dusk for each day of the study
 
@@ -27,7 +35,7 @@ hetp_use <- hetp_use %>%
 # it is used below in assign.inlight() and make.eel.avail()
 
 make.dawn.dusk<-function(){
-  study.days <- unique(as.Date(hetp_use$timestamp))
+  study.days <- unique(as.Date(hetp_use$timestamp, tz = "America/Los_Angeles"))
   length(study.days)
   hels <- matrix(c(-122.9, 38.2), nrow=1)
   Hels <- SpatialPoints(hels, proj4string=CRS("+proj=longlat +datum=WGS84"))
@@ -43,6 +51,31 @@ make.dawn.dusk<-function(){
 }
 dawn.dusk<- make.dawn.dusk()
 
+
+add.dawn.dusk<-function(df){
+pts <- cbind(df$location_long, df$location_lat)
+df.sp <- SpatialPoints(pts, proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+dawn = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dawn", POSIXct.out = TRUE))
+dusk = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dusk", POSIXct.out = TRUE))
+  
+dawn.dusk <- cbind(select(dawn, dawn.time = time), select(dusk, dusk.time = time))
+hetp_dawn.dusk <- cbind(df, dawn.dusk)
+}
+hetp_dd <- add.dawn.dusk(hetp_use)
+
+## for testing  
+test.add.dawn.dusk <- function(zlong, zlat, zdate){
+  hels <- matrix(c(zlong, zlat), nrow=1)
+  Hels <- SpatialPoints(hels, proj4string=CRS("+proj=longlat +datum=WGS84"))
+  d <- as.POSIXct(as.character(zdate), tzone = "America/Los_Angeles")
+  foo.dawn = data.frame(crepuscule(Hels, d, solarDep=6, direction="dawn", POSIXct.out=TRUE)) 
+  foo.dusk = data.frame(crepuscule(Hels, d, solarDep=6, direction="dusk", POSIXct.out=TRUE)) 
+  foo.dawn.dusk <- cbind(select(foo.dusk, dusk.time = time), select(foo.dawn, dawn.time = time))
+}
+##
+  
+  
 #########################################
 ## assign daylight T or F to each point, based on fields in dawn.dusk
 # inlight is a standalone dataframe witha record for each timestamp in hetpDF
@@ -57,37 +90,15 @@ df$date=as.Date(as.character(df$timestamp))
 inlight <- assign.inlight(hetp_use)
 
 
-################################
-## function for interpolating water level at bird GPS times using approx()
-
-## this uses a tide file created by C:/Users/scott.jennings/Documents/Projects/water_levels/tides/read_tide_files.R
-
-
-blake <- read.csv("C:/Users/scott.jennings/Dropbox (Audubon Canyon Ranch)/water_levels/tides/BlakesLanding/blake_tides_compiled.csv") %>% 
-  mutate(date = as.Date(as.character(date)),
-         time = as.character(time),
-         datetime = as.POSIXct(as.character(datetime)))
-
-make.bird.tides <- function() {
-  bird.tides <- data.frame(approx(blake$datetime, blake$water.level, xout = hetp_use$timestamp, method = "constant", ties = mean))
-  colnames(bird.tides) <- c("timestamp", "water.level")
-  return(bird.tides)
-}
-
-bird.tides <- make.bird.tides()
-
-# !! need to get time formats right- check bird.tides against blake.tides to make sure the times/tides still match up correctly. If not, run this
-#bird.tides$timestamp <- with_tz(bird.tides$time, tzone = "America/Los_Angeles")
-
 ##########################################
 ## estimate the number of daylight hours per day that the eelgrass beds are available to foraging egrets
 ## error on this estimate is up to 10 min with the 5 min tide data
-make.eel.avail <- function() {
-  blake_dawn.dusk <- merge(blake, dawn.dusk, by.x="date", by.y="date", all.y=T)
+make.eel.avail <- function(threshold.water.level = 1) {
+  blake_dawn.dusk <- merge(hetp_use, dawn.dusk, by.x="date", by.y="date", all.y=T)
   blake_dawn.dusk$inlight		=   blake_dawn.dusk$datetime	%within%	interval(	blake_dawn.dusk$dawn.time, blake_dawn.dusk$dusk.time)	
   eelgrass_available <- data.frame(blake_dawn.dusk %>% 
                                      group_by(date) %>% 
-                                     filter(inlight=="TRUE" & water.level<=1) %>% 
+                                     filter(inlight=="TRUE" & water.level <= threshold.water.level) %>% 
                                      summarise(num.hours = (n()*5/60)))
   return(eelgrass_available)
 }

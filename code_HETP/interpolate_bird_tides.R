@@ -39,11 +39,11 @@ zfile_path <- paste(zloc, zfile, sep = "")
          datetime = as.POSIXct(datetime),
          date = as.POSIXct(date)) 
 }
-zloc <- "SanFran/SanFran_HL/" # specify the folder location here
+zloc <- "C:/Users/scott.jennings/Documents/Projects/water_levels/tides/SanFran/SanFran_HL/" # specify the folder location here
 zskip = 14
 sf_hl <- map_df(list.files(zloc), tide_reader_hl_generic) # map_df, from package purrr, is the function that actually repeats the reading function for each file in the specified folder and combines them into a single data frame
 
-zloc <- "BlakesLanding/BlakesLanding_HL/"
+zloc <- "C:/Users/scott.jennings/Documents/Projects/water_levels/tides/BlakesLanding/BlakesLanding_HL/"
 zskip = 20
 bl_hl <- map_df(list.files(zloc), tide_reader_hl_generic)
 
@@ -63,13 +63,13 @@ bl_hl <- map_df(list.files(zloc), tide_reader_hl_generic)
 ##----- or other interval data. 
 # read and combine all files in a location
 tide_reader_sf_1hr <- function(zfile){
-  zfile_path <- paste("SanFran/SanFran_1hr/", zfile, sep = "")
+  zfile_path <- paste("C:/Users/scott.jennings/Documents/Projects/water_levels/tides/SanFran/SanFran_1hr/", zfile, sep = "")
   tide_table = read.table(zfile_path, header = F, skip = 14,  col.names = c("date", "day",  "time", "water.level")) %>% 
   mutate(datetime = paste(date, time, sep = " "),
          datetime = as.POSIXct(datetime),
          date = as.POSIXct(date)) 
 }
-sf_1h <- map_df(list.files("SanFran/SanFran_1hr"), tide_reader_sf_1hr)
+sf_1h <- map_df(list.files("C:/Users/scott.jennings/Documents/Projects/water_levels/tides/SanFran/SanFran_1hr"), tide_reader_sf_1hr)
 
 
 # or just read one file at a time
@@ -218,13 +218,13 @@ test_plotter2(zyear = 2018,
 
 # if you have several files (e.g. monthly) for the bird GPS data downloaded as .csvs from Movebank, this function will read them in, reduce the fields, and combine them into a single dataframe
 hetp_gps_reader <- function(zfile){
-zfile_path <- paste("C:/Users/scott.jennings/Dropbox (Audubon Canyon Ranch)/SJ_files/HETP/data_files/GPSonly/", zfile, sep = "")
+zfile_path <- paste("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/GPSonly/", zfile, sep = "")
   tide_table = read.csv(zfile_path) %>% 
   select(gps.timestamp = timestamp, location_lat = location.lat, location_long = location.long, tag = tag.local.identifier, bird = individual.local.identifier, event.id, utm.easting, utm.northing, utm.zone, study.timezone, timestamp = study.local.timestamp) %>% 
     mutate(timestamp = as.POSIXct(timestamp))
 }
 
-hetp_gps <- map_df(list.files("C:/Users/scott.jennings/Dropbox (Audubon Canyon Ranch)/SJ_files/HETP/data_files/GPSonly/"), hetp_gps_reader)
+hetp_gps <- map_df(list.files("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/GPSonly/"), hetp_gps_reader)
 
 #---
 
@@ -241,7 +241,7 @@ offset_1hr_df_tidem <- as.sealevel(elevation = offset_1hr_df4pred$generated.leve
   tidem() # make it into an object that oce can work with
 
 bird_tides <- gps_timeseries %>% 
-  mutate(Estimated = predict(offset_1hr_df_tidem, newdata = timestamp)) # this is actually running oce::predict_tidem to interpolate the tide level at the subordinate station for each GPS timestamp
+  mutate(water.level = predict(offset_1hr_df_tidem, newdata = timestamp)) # this is actually running oce::predict_tidem to interpolate the tide level at the subordinate station for each GPS timestamp
 }
 bird_tides <- bird_tide_interpolater(zstart.date = "2017-06-02", 
                                      zend.date = "2018-12-30", 
