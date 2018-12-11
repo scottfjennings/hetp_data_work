@@ -31,10 +31,49 @@ hetp_use <- bird_tides %>%
 ################################
 ## determin time of dawn and dusk for each day of the study
 
-# dawn.dusk is a standalone dataframe with a record for each date in hetpDF
-# it is used below in assign.inlight() and make.eel.avail()
+add.dawn.dusk<-function(df){
+pts <- cbind(df$location_long, df$location_lat)
+df.sp <- SpatialPoints(pts, proj4string=CRS("+proj=longlat +datum=WGS84"))
 
-make.dawn.dusk<-function(){
+dawn = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dawn", POSIXct.out = TRUE))
+dusk = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dusk", POSIXct.out = TRUE))
+  
+dawn.dusk <- cbind(select(dawn, dawn.time = time), select(dusk, dusk.time = time))
+hetp_dawn.dusk <- cbind(df, dawn.dusk)
+}
+hetp_dd <- add.dawn.dusk(hetp_use)
+
+
+## for testing  
+test.add.dawn.dusk <- function(zlong, zlat, zdate){
+  hels <- matrix(c(zlong, zlat), nrow=1)
+  Hels <- SpatialPoints(hels, proj4string=CRS("+proj=longlat +datum=WGS84"))
+  d <- as.POSIXct(as.character(zdate), tzone = "America/Los_Angeles")
+  foo.dawn = data.frame(crepuscule(Hels, d, solarDep=6, direction="dawn", POSIXct.out=TRUE)) 
+  foo.dusk = data.frame(crepuscule(Hels, d, solarDep=6, direction="dusk", POSIXct.out=TRUE)) 
+  foo.dawn.dusk <- cbind(select(foo.dawn, dawn.time = time), select(foo.dusk, dusk.time = time))
+  return(foo.dawn.dusk)
+}
+##
+  
+  
+#########################################
+## assign daylight T or F to each point, based on fields in dawn.dusk
+# inlight is a standalone dataframe witha record for each timestamp in hetpDF
+assign.inlight <- function(df) {
+df <- df %>% 
+  mutate(inlight = timestamp	%within%	interval(dawn.time, dusk.time))
+  return(df)
+}
+
+hetp_dd_inlight <- assign.inlight(hetp_dd)
+
+
+##########################################
+# blake.dawn.dusk is a standalone dataframe with a record for each date in hetpDF
+# it is used below in make blake_eelgrass_available
+
+make.blake.dawn.dusk<-function(){
   study.days <- unique(as.Date(hetp_use$timestamp, tz = "America/Los_Angeles"))
   length(study.days)
   hels <- matrix(c(-122.9, 38.2), nrow=1)
@@ -49,61 +88,26 @@ make.dawn.dusk<-function(){
   dawn.dusk$date <- as.Date(dawn.dusk$dawn.time)
   return(dawn.dusk)
 }
-dawn.dusk<- make.dawn.dusk()
+blake.dawn.dusk<- make.blake.dawn.dusk()
 
 
-add.dawn.dusk<-function(df){
-pts <- cbind(df$location_long, df$location_lat)
-df.sp <- SpatialPoints(pts, proj4string=CRS("+proj=longlat +datum=WGS84"))
 
-dawn = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dawn", POSIXct.out = TRUE))
-dusk = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dusk", POSIXct.out = TRUE))
-  
-dawn.dusk <- cbind(select(dawn, dawn.time = time), select(dusk, dusk.time = time))
-hetp_dawn.dusk <- cbind(df, dawn.dusk)
-}
-hetp_dd <- add.dawn.dusk(hetp_use)
+blake4eelavail <- blake5min_tides %>% 
+  mutate(date = as.Date(timestamp)) %>% 
+  full_join(blake.dawn.dusk, by = c("date")) %>% 
+  assign.inlight()
 
-## for testing  
-test.add.dawn.dusk <- function(zlong, zlat, zdate){
-  hels <- matrix(c(zlong, zlat), nrow=1)
-  Hels <- SpatialPoints(hels, proj4string=CRS("+proj=longlat +datum=WGS84"))
-  d <- as.POSIXct(as.character(zdate), tzone = "America/Los_Angeles")
-  foo.dawn = data.frame(crepuscule(Hels, d, solarDep=6, direction="dawn", POSIXct.out=TRUE)) 
-  foo.dusk = data.frame(crepuscule(Hels, d, solarDep=6, direction="dusk", POSIXct.out=TRUE)) 
-  foo.dawn.dusk <- cbind(select(foo.dusk, dusk.time = time), select(foo.dawn, dawn.time = time))
-}
-##
-  
-  
-#########################################
-## assign daylight T or F to each point, based on fields in dawn.dusk
-# inlight is a standalone dataframe witha record for each timestamp in hetpDF
-assign.inlight <- function(df) {
-df$date=as.Date(as.character(df$timestamp))
-  df1 <- merge(df, dawn.dusk, by.x="date", by.y="date", all=T)
-  df1$inlight		=   df1$timestamp	%within%	interval(	df1$dawn.time	, df1$dusk.time)	
-  df1 <- dplyr::select(df1, timestamp, inlight, dawn.time, dusk.time)
-  return(df1)
-}
-
-inlight <- assign.inlight(hetp_use)
-
-
-##########################################
+## make eelgrass.available
 ## estimate the number of daylight hours per day that the eelgrass beds are available to foraging egrets
 ## error on this estimate is up to 10 min with the 5 min tide data
-make.eel.avail <- function(threshold.water.level = 1) {
-  blake_dawn.dusk <- merge(hetp_use, dawn.dusk, by.x="date", by.y="date", all.y=T)
-  blake_dawn.dusk$inlight		=   blake_dawn.dusk$datetime	%within%	interval(	blake_dawn.dusk$dawn.time, blake_dawn.dusk$dusk.time)	
-  eelgrass_available <- data.frame(blake_dawn.dusk %>% 
-                                     group_by(date) %>% 
-                                     filter(inlight=="TRUE" & water.level <= threshold.water.level) %>% 
-                                     summarise(num.hours = (n()*5/60)))
-  return(eelgrass_available)
-}
+ blake_eelgrass_available <- blake4eelavail %>% 
+   group_by(date) %>% 
+   filter(inlight=="TRUE" & water.level <= 1) %>%
+   summarise(num.hours = (n()*5/60)) %>% 
+   full_join(select(blake.dawn.dusk, date), by = c("date")) %>% 
+   mutate(num.hours = ifelse(is.na(num.hours), 0, num.hours)) %>% 
+   arrange(date)
 
-eelgrass_avail <- make.eel.avail()
 
 
 
@@ -129,10 +133,11 @@ hetpDF_use <- make.hetpDF_use(hetp_use)
 #hetp@data<- merge(hetp@data, dplyr::select(hetpDF_use, event_id, inlight, water.level, num.hours, zone.name), by.x="event_id", by.y="event_id", all=T)
 
 
+hetpDF_with_covariates <- hetp_dd_inlight %>% 
+  full_join(., blake_eelgrass_available, by = "date")
 
 
-
-write.csv(hetpDF_use, "data_files/hetp_use_temp.csv", row.names = F)
+write.csv(hetpDF_with_covariates, "data_files/GPS_with_covariates/hetpGPS_with_covariates.csv", row.names = F)
 
 
 

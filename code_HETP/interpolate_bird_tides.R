@@ -20,7 +20,9 @@ library(tidyverse)
 library(oce)
 library(lubridate)
 library(purrr)
-
+library(measurements)
+library(sp)
+library(maptools)
 
 #--- oce::predict.tidem() doesn't make a very good curve with just H/L values, but does pretty good with 1-hour interval values 
 #--- adding H/L values to 1-hour values helps ensure the H and L levels are represented
@@ -263,5 +265,39 @@ ggplot() +
 test_plotter3(zyear = 2018, 
               zmonth = 11, 
               zdate.range = c(5, 10))
+
+
+##########
+make.blake5min_tides <- function(offset_1hr_df4pred, threshold.water.level = 1, zstart.date, zend.date) {
+  offset_1hr_df = bl_genhl_1h
+  zstart.date = "2017-06-02"
+  zend.date = "2018-12-30"
+  
+
+  offset_1hr_df4pred <- filter(offset_1hr_df, date > zstart.date & date < zend.date) 
+  
+  
+  zstart.datetime = as.POSIXct(paste(zstart.date, "00:00:00", sep = " "), tzone = "America/Los_Angeles")
+  zend.datetime = as.POSIXct(paste(zend.date, "23:59:59", sep = " "), tzone = "America/Los_Angeles")
+  ts <- data.frame(timestamp = seq(zstart.datetime, zend.datetime, by = 300))
+  
+  
+offset_1hr_df_tidem <- as.sealevel(elevation = offset_1hr_df4pred$generated.level, time = offset_1hr_df4pred$generated.time) %>% 
+  tidem() # make it into an object that oce can work with
+
+blake_tides <- ts %>% 
+  mutate(water.level = predict(offset_1hr_df_tidem, newdata = timestamp)) # this is actually running oce::predict_tidem to interpolate the tide level at the subordinate station for each GPS timestamp
+  
+ 
+  return(blake_tides)
+}
+
+blake5min_tides <- make.blake5min_tides()
+
+
+
+## handy cleanup if going on to hetp_covariates.R or elsewhere
+rm("bird_tide_interpolater", "bl_genhl_1h", "bl_hl", "hetp_gps", "hetp_gps_reader", "sf_1h", "sf_1h_offsethl", "sf_1h_tidenums", "sf_hl", "sf_hl_1h", "sf_hltidenums", "sf_hltidenums_wide", "sf_hltidenums_wide_mids", "subord_offsetter", "subordinate_offsets", "tide_reader_hl_generic", "tide_reader_sf_1hr", "zloc", "zskip")
+
 
 

@@ -10,31 +10,25 @@ library(shiny)
 library(hms)
 
 ## read in the hetp_use data table created by data_visualization.R
-hetp_start <- read.csv("data_files/hetp_use_temp.csv")
+hetp_start <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201811.csv")
 
 
 ## fix the format for the date fields
 hetp <- hetp_start %>% 
   mutate(date = as.Date(as.character(date), format = "%Y-%m-%d"),
-         timestamp=as.POSIXct(as.character(timestamp), format="%Y-%m-%d %H:%M:%S"),
-         dusk.time=as.POSIXct(as.character(dusk.time), format="%Y-%m-%d %H:%M:%S"),
-         dawn.time=as.POSIXct(as.character(dawn.time), format="%Y-%m-%d %H:%M:%S"),
-         mo.da=paste(month(timestamp, label = TRUE, abbr = TRUE), "-", day(timestamp), sep=""),
-         hr=hour(timestamp),
-         hr.mn=as.POSIXct(paste(hour(timestamp), ":", minute(timestamp), ":00", sep=""), format="%H:%M:%S"),
-         hr.mn.sec=as.hms(paste(hour(timestamp), minute(timestamp), second(timestamp), sep=":"))) %>% 
-  select(date, ztimestamp=timestamp, lat = location_lat, lon = location_long, bird)
+         timestamp = as.POSIXct(as.character(timestamp), format="%Y-%m-%d %H:%M:%S"),
+         dusk.time = as.POSIXct(as.character(dusk.time), format="%Y-%m-%d %H:%M:%S"),
+         dawn.time = as.POSIXct(as.character(dawn.time), format="%Y-%m-%d %H:%M:%S"),
+         mo.da = paste(month(timestamp, label = TRUE, abbr = TRUE), "-", day(timestamp), sep = ""),
+         #hr=hour(timestamp),
+         #hr.mn=as.POSIXct(paste(hour(timestamp), ":", minute(timestamp), ":00", sep=""), format="%H:%M:%S"),
+         hr.mn.sec=as.character(paste(hour(timestamp), minute(timestamp), second(timestamp), sep = ":"))) %>% 
+  select(date, ztimestamp = timestamp, lat = location_lat, lon = location_long, bird, mo.da, hr.mn.sec, water.level, inlight)
 
 
 
-
-
-################################################
-
-################################################
-##  THIS IS THE WORKING COPY OF THE MOST RECENT MAP, WHERE I FIDDLE WITH NEW STUFF
-
-
+##############################################################################################33
+## good working set of code
 ## the user interface part
 ui = fluidPage(div(style = "background-color: skyblue;",
                    
@@ -85,19 +79,28 @@ server = function(input, output) {
     lwr.zdate <- min(input$dateRange)
     upr.zdate <- max(input$dateRange)
     
+    
+    #zdate <- c(as.Date("2018-05-01"), as.Date("2018-10-15"))
+    #zbird <- "GREG_4"
+    
     birdies <- hetp %>% 
       filter(findInterval(hetp$date, zdate, rightmost.closed=TRUE) == 1,
              hetp$bird %in% zbird)
     
-    #interval.divider <- birdies %>% 
-     # summarise(nrow()/10,000)
+    #interval.divider <- round(nrow(birdies)/1000, 0)
     
-    #birdies <- birdies[seq(1, NROW(birdies), by = interval.divider),]
+    if(nrow(birdies) > 500){
+      birdies <- birdies[seq(1, NROW(birdies), by = round(nrow(birdies)/500, 0)),]
+    } else {
+      birdies <- birdies
+    }
+    
+    
     
     
     firstbirdies <- birdies %>% 
       filter(ztimestamp == min(ztimestamp))
-    laststbirdies <- birdies %>% 
+    lastbirdies <- birdies %>% 
       filter(ztimestamp == max(ztimestamp))
     
     
@@ -107,21 +110,27 @@ server = function(input, output) {
                    weight = 3, color = "orangered") %>%
       # add point for each location
       addCircleMarkers(lng = birdies$lon, lat = birdies$lat, radius=3, 
-                       popup=paste0("<b/>", birdies$bird,"</b>", "<br>Date: ", 
-                                    firstbirdies$mo.da, "-", year(birdies$date), 
-                                    "<br> Time (24-hr format): ", birdies$hr.mn.sec), 
+                       popup=paste0("<b/>", birdies$bird,"</b>", 
+                                    "<br>Date: ", birdies$mo.da, "-", year(birdies$date), 
+                                    "<br> Time (24-hr format): ", birdies$hr.mn.sec,
+                                    "<br> Tomales tidal level: ", round(birdies$water.level, 1),
+                                    "<br> During daylight? ", birdies$inlight), 
                        color="orangered")%>%
       # add different point for first location
       addCircleMarkers(lng = firstbirdies$lon, lat = firstbirdies$lat, radius=3, 
-                       popup=paste0("<b>", "First point: ","<b/>", firstbirdies$bird,"</b>", "<br>Date: ", 
-                                    firstbirdies$mo.da, "-", year(firstbirdies$date), "<br> Time (24-hr format): ",
-                                    firstbirdies$hr.mn.sec), 
+                       popup=paste0("<b>", "First point: ","<b/>", firstbirdies$bird, 
+                                    "</b>", "<br>Date: ", firstbirdies$mo.da, "-", year(firstbirdies$date), 
+                                    "<br> Time (24-hr format): ", firstbirdies$hr.mn.sec,
+                                    "<br> Tomales tidal level: ", round(firstbirdies$water.level, 1),
+                                    "<br> During daylight? ", firstbirdies$inlight), 
                        color="green")%>%
       # add different point for last location
-      addCircleMarkers(lng = laststbirdies$lon, lat = laststbirdies$lat, radius=3, 
-                       popup=paste0("<b>", "Last point: ","<b/>", laststbirdies$bird,"</b>", "<br>Date: ", 
-                                    laststbirdies$mo.da, "-", year(laststbirdies$date), "<br> Time (24-hr format): ",
-                                    laststbirdies$hr.mn.sec), 
+      addCircleMarkers(lng = lastbirdies$lon, lat = lastbirdies$lat, radius=3, 
+                       popup=paste0("<b>", "Last point: ","<b/>", lastbirdies$bird,"</b>", 
+                                    "<br>Date: ", lastbirdies$mo.da, "-", year(lastbirdies$date), 
+                                    "<br> Time (24-hr format): ", lastbirdies$hr.mn.sec,
+                                    "<br> Tomales tidal level: ", round(lastbirdies$water.level, 1),
+                                    "<br> During daylight? ", lastbirdies$inlight), 
                        color="blue")%>%
       addLayersControl(
         baseGroups = c("Basic terrain", "Satellite image")
@@ -134,4 +143,3 @@ server = function(input, output) {
 
 
 shinyApp(ui, server)
-

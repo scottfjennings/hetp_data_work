@@ -6,17 +6,16 @@ library(leaflet)
 
 
 ## read in the hetp_use data table created by data_visualization.R
-hetp <- read.csv("data_files/hetp_use_temp.csv")
+hetp <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201811.csv")
 
 
 ## fix the format for the date fields
-hetp <- within(hetp, {
-  date = as.Date(as.character(date), format = "%Y-%m-%d")
-  timestamp=as.POSIXct(as.character(timestamp), format="%Y-%m-%d %H:%M:%S")
-  mo.da=paste(month(timestamp, label = TRUE, abbr = TRUE), "-", day(timestamp), sep="")
-  hr.mn=paste(hour(timestamp), ":", minute(timestamp), sep="")
-}) %>% 
-  select(date, timestamp, lat = location_lat, lon = location_long, bird, everything())
+hetp <- hetp %>% 
+  mutate(date = as.Date(as.character(date), format = "%Y-%m-%d"),
+  timestamp=as.POSIXct(as.character(timestamp), format="%Y-%m-%d %H:%M:%S"),
+  mo.da=paste(month(timestamp, label = TRUE, abbr = TRUE), "-", day(timestamp), sep=""),
+  hr.mn=paste(hour(timestamp), ":", minute(timestamp), sep="")) %>% 
+  select(date, timestamp, lat = location_lat, lon = location_long, bird, dawn.time, dusk.time, inlight, num.hours, mo.da, hr.mn, water.level)
 
 
 
