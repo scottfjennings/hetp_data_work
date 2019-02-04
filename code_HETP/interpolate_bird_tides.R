@@ -50,6 +50,7 @@ zskip = 20
 bl_hl <- map_df(list.files(zloc), tide_reader_hl_generic)
 
 
+
 # or you can read a single file
 #tide_reader_hl <- function(zlocation, zmonthyr, zheader.lines){
 #  zfile_path <- paste(zlocation, "/", zlocation, "_", zmonthyr, "_HL.txt", sep = "")
@@ -153,7 +154,7 @@ test_plotter1 <- function(zyear, zmonth, zdate.range){
 ggplot(data = filter(sf_1h_offsethl,  year(datetime) == zyear, month(datetime) == zmonth & day(datetime) >= zdate.range[1] & day(datetime) <= zdate.range[2])) +
   geom_point(aes(x = datetime, y = water.level, color = offsetHL, size = 3))
 }
-test_plotter2(zyear = 2018, 
+test_plotter1(zyear = 2018, 
               zmonth = 11, 
               zdate.range = c(5, 10)) # specify the year, month, and day range you want to look at. spot check a few times throughout the entire range of your dates
 
@@ -211,7 +212,7 @@ ggplot() +
   geom_line(data = filter(bl_genhl_1h, year(datetime) == zyear, month(datetime) == zmonth & day(datetime) >= zdate.range[1] & day(datetime) <= zdate.range[2]), aes(x = generated.time, y = generated.level), color = "red") 
 }
 test_plotter2(zyear = 2018, 
-              zmonth = 11, 
+              zmonth = 12, 
               zdate.range = c(5, 10))
 
 
@@ -246,7 +247,7 @@ bird_tides <- gps_timeseries %>%
   mutate(water.level = predict(offset_1hr_df_tidem, newdata = timestamp)) # this is actually running oce::predict_tidem to interpolate the tide level at the subordinate station for each GPS timestamp
 }
 bird_tides <- bird_tide_interpolater(zstart.date = "2017-06-02", 
-                                     zend.date = "2018-12-30", 
+                                     zend.date = "2019-01-31", 
                                      offset_1hr_df = bl_genhl_1h, 
                                      gps_timeseries = hetp_gps)
 
@@ -256,14 +257,14 @@ bird_tides <- bird_tide_interpolater(zstart.date = "2017-06-02",
 test_plotter3 <- function(zyear, zmonth, zdate.range) {
 ggplot() +
   #geom_line(data = filter(bl_genhl_1h_2_6m, year(datetime) == zyear, month(datetime) == zmonth & day(datetime) >= zdate.range[1] & day(datetime) <= zdate.range[2]), aes(x = datetime, y = Estimated), color = "red", size = 2) +
-  geom_line(data = filter(bird_tides, year(timestamp) == zyear, month(timestamp) == zmonth & day(timestamp) >= zdate.range[1] & day(timestamp) <= zdate.range[2]), aes(x = timestamp, y = Estimated), color = "red", size = 2) +
+  geom_line(data = filter(bird_tides, year(timestamp) == zyear, month(timestamp) == zmonth & day(timestamp) >= zdate.range[1] & day(timestamp) <= zdate.range[2]), aes(x = timestamp, y = water.level), color = "red", size = 2) +
   geom_line(data = filter(sf_1h, year(datetime) == zyear, month(datetime) == zmonth & day(datetime) >= zdate.range[1] & day(datetime) <= zdate.range[2]), aes(x = datetime, y = water.level), size = 1) +
   geom_point(data = filter(sf_hl, year(datetime) == zyear, month(datetime) == zmonth & day(datetime) >= zdate.range[1] & day(datetime) <= zdate.range[2]), aes(x = datetime, y = water.level), size = 1)  +
   geom_line(data = filter(bl_genhl_1h, year(generated.time) == zyear, month(generated.time) == zmonth & day(generated.time) >= zdate.range[1] & day(generated.time) <= zdate.range[2]), aes(x = generated.time, y = generated.level), color = "blue", size = 1) +
   geom_point(data = filter(bl_hl, year(datetime) == zyear, month(datetime) == zmonth & day(datetime) >= zdate.range[1] & day(datetime) <= zdate.range[2]), aes(x = datetime, y = water.level), color = "blue", size = 1)
 }
 test_plotter3(zyear = 2018, 
-              zmonth = 11, 
+              zmonth = 12, 
               zdate.range = c(5, 10))
 
 

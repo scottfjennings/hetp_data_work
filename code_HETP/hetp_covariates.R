@@ -17,11 +17,11 @@ library(maptools)
 library(chron)
 
 
-# if coming from interpolate_bird_tides.R, then reading and fixing timestamp should be skipped,
 hetp_use <- read.csv("data_files/HETP_GPSonly_201706_201807.csv")
 hetp_use <- hetp_use %>% 
   mutate(timestamp = as.POSIXct(as.character(timestamp)))
 
+# if coming from interpolate_bird_tides.R, then reading and fixing timestamp should be skipped,
 # in stead just rename the final product from interpolate_bird_tides.R,
 # make field date,
 # and remove records with no coordinates
@@ -93,7 +93,7 @@ blake.dawn.dusk<- make.blake.dawn.dusk()
 
 
 blake4eelavail <- blake5min_tides %>% 
-  mutate(date = as.Date(timestamp)) %>% 
+  mutate(date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% 
   full_join(blake.dawn.dusk, by = c("date")) %>% 
   assign.inlight()
 
@@ -114,10 +114,10 @@ blake4eelavail <- blake5min_tides %>%
 ## add inlight, eelgrass_avail and bird.tides to hetpDF 
 ## and add 'zones' from assign_zones.R
 make.hetpDF_use <- function(df) {
-  df <- merge(df, inlight, by.x = "timestamp", by.y = "timestamp", all=T)
-  df <- merge(df, bird.tides, by.x = "timestamp", by.y = "timestamp", all=T)
+  df <- merge(df, hetp_dd_inlight, by.x = "timestamp", by.y = "timestamp", all=T)
+  #df <- merge(df, bird.tides, by.x = "timestamp", by.y = "timestamp", all=T)
   df$date=as.Date(as.character(df$timestamp))
-  df <- merge(df, eelgrass_avail, by.x = "date", by.y = "date", all=T)
+  df <- merge(df, blake_eelgrass_available, by.x = "date", by.y = "date", all=T)
   #df <- merge(df, bird.zones, by.x="event_id", by.y="event_id", all=T)
   df$num.hours[is.na(df$num.hours)] <- 0
   df <- dplyr::arrange(df, timestamp)
@@ -141,15 +141,21 @@ write.csv(hetpDF_with_covariates, "data_files/GPS_with_covariates/hetpGPS_with_c
 
 
 
-#hetpDF_summ <- hetpDF_use %>% 
-#  group_by(bird, date, zone.name) %>% 
-#  summarise(num.points = n()) %>% 
-#  full_join(eelgrass_avail)
+# make a light data frame for shiny webmap
+hetp_start <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201811.csv")
 
-#hetpDF_summ$num.hours[is.na(hetpDF_summ$num.hours)]<- 0
+## fix the format for the date fields
+hetp <- hetp_start %>% 
+  mutate(date = as.Date(as.character(date), format = "%Y-%m-%d"),
+         timestamp = as.POSIXct(as.character(timestamp), format="%Y-%m-%d %H:%M:%S"),
+         dusk.time = as.POSIXct(as.character(dusk.time), format="%Y-%m-%d %H:%M:%S"),
+         dawn.time = as.POSIXct(as.character(dawn.time), format="%Y-%m-%d %H:%M:%S"),
+         mo.da = paste(month(timestamp, label = TRUE, abbr = TRUE), "-", day(timestamp), sep = ""),
+         #hr=hour(timestamp),
+         #hr.mn=as.POSIXct(paste(hour(timestamp), ":", minute(timestamp), ":00", sep=""), format="%H:%M:%S"),
+         hr.mn.sec=as.character(paste(hour(timestamp), minute(timestamp), second(timestamp), sep = ":"))) %>% 
+  select(date, ztimestamp = timestamp, lat = location_lat, lon = location_long, bird, mo.da, hr.mn.sec, water.level, inlight)
 
 
-
-
-
+write.csv(hetp, "C:/Users/scott.jennings/Documents/Projects/hetp/hetp_shiny_webmap/data/hetp_use.csv", row.names = F)
 
