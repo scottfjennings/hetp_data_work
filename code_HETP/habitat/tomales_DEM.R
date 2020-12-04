@@ -6,3 +6,17 @@
 
 ## file is saved at data_files/habitat/tomales_bay_P110_2018.nc
 
+library(raster)
+library(ncdf4)
+library(sf)
+
+marin.dem <- raster::raster('data_files/habitat/tomales_bay_P110_2018.nc')
+
+eel <- st_read('data_files/habitat/ds890.shp')
+
+plot(marin.dem)
+plot(eel)
+
+eel_ll <- st_transform(eel, crs = crs(marin.dem))
+
+eel_bathy <- mask(marin.dem, eel_ll)

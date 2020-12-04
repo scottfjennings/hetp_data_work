@@ -7,7 +7,7 @@ library(scales)
 library(hms)
 
 ## read in the hetp_use data table created by data_visualization.R
-hetp_start <- read.csv("data_files/hetp_use_temp.csv")
+hetp_start <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201904.csv")
 
 
 ## fix the format for the date fields
@@ -23,12 +23,14 @@ hetp_1day <- hetp_start %>%
 tz(hetp_1day$timestamp) <- "America/Los_Angeles"
 
 
-greg1_20170627 <- hetp_1day %>% 
-  filter(date == "2017-06-27", bird == "GREG_1") %>% 
+greg2_20170627 <- hetp_1day %>% 
+  filter(date == "2017-06-27", bird == "GREG_2") %>% 
   droplevels() %>% 
   arrange(timestamp) %>%
   select(date, timestamp, lat, lon, bird, utm.easting, utm.northing, utm.zone, inlight, dawn.time, dusk.time, water.level, num.hours, ztime) %>% 
   arrange(date) 
+
+write.csv(greg2_20170627, "data_files/GPS_with_covariates/greg2_20170627.csv")
 
 greg1_20170627high1 <- greg1_20170627 %>% 
   filter(hour(timestamp) < 10) %>% 
@@ -83,12 +85,15 @@ dev.off()
 
   
   
-greg1_20170704 <- hetp_1day %>% 
-  filter(date == "2017-07-04", bird == "GREG_1") %>% 
+greg2_20170704 <- hetp_1day %>% 
+  filter(date == "2017-07-04", bird == "GREG_2") %>% 
   droplevels() %>% 
   arrange(timestamp) %>%
   select(date, timestamp, lat, lon, bird, utm.easting, utm.northing, utm.zone, inlight, dawn.time, dusk.time, water.level, num.hours, ztime) %>% 
   arrange(date) 
+
+
+write.csv(greg2_20170704, "data_files/GPS_with_covariates/greg2_20170704.csv")
 
 greg1_20170704high1 <- greg1_20170704 %>% 
   filter(hour(timestamp) < 16) %>% 

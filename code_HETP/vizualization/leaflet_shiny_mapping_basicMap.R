@@ -10,7 +10,7 @@ library(shiny)
 library(hms)
 
 ## read in the hetp_use data table created by data_visualization.R
-hetp_start <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201811.csv")
+hetp_start <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201901.csv")
 
 
 ## fix the format for the date fields

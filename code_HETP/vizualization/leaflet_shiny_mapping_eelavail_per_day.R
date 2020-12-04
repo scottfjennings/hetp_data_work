@@ -2,6 +2,8 @@
 
 ## interactive plot for hetp data with shiny
 
+## shows multiple days
+
 
 library(tidyverse)
 library(lubridate)
@@ -10,8 +12,9 @@ library(shiny)
 library(hms)
 
 ## read in the hetp_use data table created by data_visualization.R
-hetp_start <- read.csv("data_files/hetp_use_temp.csv")
+hetp_start <- read.csv("data_files/GPS_with_covariates/hetpGPS_with_covariates201706_201901.csv")
 
+#hetp_start <- read.csv("data_files/GPS_with_covariates/greg2_summer17.csv")
 
 ## fix the format for the date fields
 hetp <- hetp_start %>% 
@@ -25,15 +28,28 @@ hetp <- hetp_start %>%
          hr.mn.sec=as.hms(paste(hour(timestamp), minute(timestamp), second(timestamp), sep=":"))) %>% 
   select(date, ztimestamp=timestamp, lat = location_lat, lon = location_long, bird, everything())
 
+rm(hetp_start)
+hetp <- hetp %>% 
+  filter(bird == "GREG_2",
+         month(date) > 3 & month(date) < 7 & 
+           year(date) == 2017) %>% 
+  select(date, ztimestamp, lat, lon, bird, water.level, dawn.time, dusk.time, inlight, num.hours, mo.da, hr, hr.mn, hr.mn.sec)
+
+write.csv(hetp, "data_files/GPS_with_covariates/greg2_summer18.csv", row.names = F)
+
+hetp <- read.csv("data_files/GPS_with_covariates/greg2_summer17.csv") %>% 
+    mutate(date = as.Date(as.character(date), format = "%Y-%m-%d"),
+         ztimestamp=as.POSIXct(as.character(ztimestamp), format="%Y-%m-%d %H:%M:%S"))
+
 
 
 ################################################
-foof <- hetp %>% 
-  group_by(bird, month(date)) %>% 
-  summarise(num_points = n(),
-            min_tide = min(water.level),
-            med_tide = median(water.level),
-            max_tide = max(water.level))
+#foof <- hetp %>% 
+#  group_by(bird, month(date)) %>% 
+#  summarise(num_points = n(),
+#            min_tide = min(water.level),
+#            med_tide = median(water.level),
+#            max_tide = max(water.level))
 
 
  
@@ -44,7 +60,7 @@ foof <- hetp %>%
 
 
 ## the user interface part
-ui = fluidPage(div(style = "background-color: skyblue;",
+ui_EelPerDay = fluidPage(div(style = "background-color: skyblue;",
                    
                    fluidRow(column(7, offset = 1, h1("Explore movement patterns of Great Egrets.", 
                                                      style = "font-family: 'Source Sans Pro';"))),
@@ -56,14 +72,22 @@ ui = fluidPage(div(style = "background-color: skyblue;",
                                        selectInput(inputId = "bird", 
                                                    label = "Select a bird", 
                                                    choices = sort(unique(hetp$bird))))),
-                            
-                            column(7, 
-                                   #offset = 1, 
+                                                        
+                            column(5, offset = 1, 
                                    div(style = "height:80px", 
-                                       dateRangeInput('dateRange',
-                                                      label = 'Select start and end dates',
-                                                      start = min(hetp$date)+30, end = min(hetp$date)+60)
-                                       ))),
+                                       sliderInput(inputId = "dateStart", 
+                                                   label = "Select start date", 
+                                                   min = min(hetp$date), max = max(hetp$date),
+                                                   value = min(hetp$date) + 30, width = "95%", 
+                                                   step = 1, animate = animationOptions(loop = TRUE)))))
+                            ,
+                           # column(7, 
+                            #       #offset = 1, 
+                            #       div(style = "height:80px", 
+                            #         dateInput('dateStart',
+                            #                          label = 'Select start date',
+                            #                          value = min(hetp$date))
+                            #           ))),
                    
                    
                    fluidRow(column(3, offset = 1, h5("Availability of low tide foraging each day"), plotOutput("eel.avail")),
@@ -75,7 +99,7 @@ ui = fluidPage(div(style = "background-color: skyblue;",
 
 
 ## the server part  
-server = function(input, output) {
+server_EelPerDay = function(input, output) {
   
   output$MapPlot1 <- renderLeaflet({
     leaflet()  %>% 
@@ -89,17 +113,16 @@ server = function(input, output) {
 
   observe({
     
-    zdate <- input$dateRange 
+    zdate <- input$dateStart 
     zbird <- input$bird
-    lwr.zdate <- min(input$dateRange)
-    upr.zdate <- max(input$dateRange)
+    #lwr.zdate <- min(input$dateRange)
+    #upr.zdate <- max(input$dateRange)
     
     birdies <- hetp %>% 
-      filter(findInterval(hetp$date, zdate, rightmost.closed=TRUE) == 1,
-             hetp$bird %in% zbird)
+      filter(date >= zdate, date <= zdate + 4, bird == zbird)
     
     foo <- hetp %>% 
-      filter(findInterval(hetp$date, zdate, rightmost.closed=TRUE) == 1, bird == zbird) %>% 
+      filter(date >= zdate, date <= zdate + 4, bird == zbird) %>% 
       distinct(date, num.hours, .keep_all = TRUE)
     
     
@@ -151,7 +174,7 @@ server = function(input, output) {
 
 
 
-shinyApp(ui, server)
+shinyApp(ui_EelPerDay, server_EelPerDay)
 
 
 
@@ -237,7 +260,7 @@ server = function(input, output) {
       addPolylines(lng = birdies$lon,
                    lat = birdies$lat, weight = 3, color = "orangered") %>%
       addCircleMarkers(lng = birdies$lon,
-                       lat = birdies$lat, radius=3, popup=paste0("<b/>", birdies$bird,"</b>", "<br>Date: ", firstbirdies$mo.da, "-", year(birdies$date), "<br> Time (24-hr format): ", birdies$hr.mn.sec), color="orangered")%>%
+                       lat = birdies$lat, radius=3, popup=paste0("<b/>", birdies$bird,"</b>", "<br>Date: ", firstbirdies$mo.da, "-", year(birdies$date), "<br> Time (24-hr format): ", birdies$hr.mn.sec), color="orangered") %>%
       addCircleMarkers(lng = firstbirdies$lon,
                        lat = firstbirdies$lat, radius=3, popup=paste0("<b>", "First point: ","<b/>", firstbirdies$bird,"</b>", "<br>Date: ", firstbirdies$mo.da, "-", year(firstbirdies$date), "<br> Time (24-hr format): ", firstbirdies$hr.mn.sec), color="green")%>%
       addCircleMarkers(lng = laststbirdies$lon,
@@ -283,11 +306,19 @@ ui = fluidPage(
   
   numericInput(inputId = "plusxdays",
                label = "Show data for this many days following selected date",
-               value = "5"),
+               value = "5",
+               max = 8,
+               min = 1),
   
   verbatimTextOutput("plusxdays"),
   
-  verbatimTextOutput("upr.zdate"))
+  verbatimTextOutput("upr.zdate"),
+  
+  sliderInput(inputId = "dateSlide", 
+              label = "Select start date", 
+              min = min(hetp$date), max = max(hetp$date),
+              value = min(hetp$date) + 30, width = "95%",
+              step = 1, animate = animationOptions(loop = TRUE)))
 
 
 server = function(input, output) {
@@ -296,6 +327,7 @@ server = function(input, output) {
   output$date <- renderPrint({ input$date })
   output$plusxdays <- renderPrint({ input$plusxdays })
   output$upr.zdate <- renderPrint({ input$date + input$plusxdays })
+  output$dateSlide <- renderPrint({ input$dateSlide})
   
 }
 shinyApp(ui, server)

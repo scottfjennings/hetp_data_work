@@ -6,5 +6,5 @@ rsconnect::setAccountInfo(name='scottfjennings',
 
 
 
-rsconnect::deployApp('C:/Users/scott.jennings/Documents/Projects/HETP/HETP_working/hetp_shiny_webmap')
+rsconnect::deployApp('C:/Users/scott.jennings/Documents/Projects/hetp/hetp_shiny_webmap')
                     
