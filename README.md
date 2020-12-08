@@ -11,3 +11,5 @@ the few files that might be regularly used prior to formal analysis or further p
 * add_covariates.R - create some covariates and merge with hetp data  
 
 * calculate_ODBA.R - calculate Overall Dynamic Body Acceleration from Movebank format Accelerometer data  
+
+* clip_write_data_files.R - separate full downloaded data (from Movebank) into 1 Bird X 1 month chunks; these chunks are a little easier for my laptop to work with than the full data sets.
