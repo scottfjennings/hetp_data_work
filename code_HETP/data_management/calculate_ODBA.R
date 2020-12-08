@@ -7,24 +7,14 @@ source("code_HETP/data_management/hetp_utility_functions.r")
 
 
 
-# each birds X year X month combo in the data
-# acc_summary made by clip_write_data_files.R
-# this used for looping below
-bird_month <- readRDS("data_files/rds/acc_summary") %>% 
-  distinct(individual.local.identifier, month(date), year(date)) %>% 
-  rename(bird = individual.local.identifier, month = 2, year = 3)
-
-
-bird_month_skinny <- bird_month[1:5,]
-
-
+bird_month <- readRDS("data_files/rds/bird_month")
 
 
 # read_bird_month_acc_rds() is in hetp_utility_functions.R
 # monthly rds files created by clip_write_data_files.R
-zbird = "GREG_6"
-zmonth = 6
-zyear = 2018
+zbird = "GREG_2"
+zmonth = 8
+zyear = 2017
 bird_acc <- read_bird_month_acc_rds(zbird, zmonth, zyear) %>% 
   filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
   dplyr::select(-timestamp, -study.timezone) %>% 
@@ -62,8 +52,8 @@ bird_acc_sep_long <- bird_acc_sep %>%
 
 
 # calculate ODBA using difference between each value and a moving average
-calc_odba <- function(acc_long, ma.window) {
-#  ma.window = 30
+calc_odba <- function(acc_long) {
+ma.window = 30
       ma <- function(x, n = ma.window){stats::filter(x, rep(1 / n, n), sides = 2)} # moving average function, from: https://stackoverflow.com/questions/743812/calculating-moving-average
 
 

@@ -44,6 +44,18 @@ bursts_per_day <- all_acc2 %>%
 
 acc_summary <- full_join(acc_checker, bursts_per_day)
 saveRDS(acc_summary, "data_files/rds/acc_summary")
+
+
+
+# each birds X year X month combo in the data
+# acc_summary made by clip_write_data_files.R
+# this used for looping below
+bird_month <- readRDS("data_files/rds/acc_summary") %>% 
+  distinct(individual.local.identifier, month(date), year(date)) %>% 
+  rename(bird = individual.local.identifier, month = 2, year = 3)
+
+saveRDS(bird_month, "data_files/rds/bird_month")
+
 # --
 all_bird_month_year <- distinct(all_acc, individual.local.identifier, month(study.local.timestamp), year(study.local.timestamp)) %>% 
   rename(bird = 1, month = 2, year = 3)
