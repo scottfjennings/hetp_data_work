@@ -7,7 +7,9 @@ source("code_HETP/data_management/hetp_utility_functions.r")
 
 
 
-#acc_summary <- readRDS("data_files/rds/acc_summary")
+# each birds X year X month combo in the data
+# acc_summary made by clip_write_data_files.R
+# this used for looping below
 bird_month <- readRDS("data_files/rds/acc_summary") %>% 
   distinct(individual.local.identifier, month(date), year(date)) %>% 
   rename(bird = individual.local.identifier, month = 2, year = 3)
@@ -15,13 +17,14 @@ bird_month <- readRDS("data_files/rds/acc_summary") %>%
 
 bird_month_skinny <- bird_month[1:5,]
 
+
+
+
+# read_bird_month_acc_rds() is in hetp_utility_functions.R
+# monthly rds files created by clip_write_data_files.R
 zbird = "GREG_6"
 zmonth = 6
 zyear = 2018
-
-
-
-
 bird_acc <- read_bird_month_acc_rds(zbird, zmonth, zyear) %>% 
   filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
   dplyr::select(-timestamp, -study.timezone) %>% 
@@ -58,9 +61,9 @@ bird_acc_sep_long <- bird_acc_sep %>%
 # acc_long <- raw_acc_to_long_df(bird_acc)
 
 
-
-calc_odba <- function(acc_long) {
-  ma.window = 30
+# calculate ODBA using difference between each value and a moving average
+calc_odba <- function(acc_long, ma.window) {
+#  ma.window = 30
       ma <- function(x, n = ma.window){stats::filter(x, rep(1 / n, n), sides = 2)} # moving average function, from: https://stackoverflow.com/questions/743812/calculating-moving-average
 
 
@@ -84,14 +87,8 @@ return(odba_timestamp)
 
 
 #
-# checking sensitivity of ODBA to moving average window size ----
-system.time(odba_ma5 <- calc_odba(acc_long, 5))
-odba_ma10 <- calc_odba(acc_long, 10)
-odba_ma20 <- calc_odba(acc_long, 20)
-odba_ma30 <- calc_odba(acc_long, 30)
-odba_ma40 <- calc_odba(acc_long, 40)
 
-
+# calculate ODBA using difference between each values and the average across the entire ACC pulse (no moving average)
 calc_odba_whole_pulse <- function(acc_long) {
  
 
@@ -111,6 +108,34 @@ odba_timestamp <- acc_ma %>%
 
 return(odba_timestamp)
 }
+
+# function of piped functions to loop through multiple files ----
+
+
+full_odba_maker <- function(zbird, zmonth, zyear) {
+  
+odba <- read_bird_month_acc_rds(zbird, zmonth, zyear) %>% 
+  filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
+  dplyr::select(-timestamp, -study.timezone) %>% 
+  mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"),
+         date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% 
+  raw_acc_to_long_df() %>% 
+  calc_odba() %>% 
+  mutate(bird.id = zbird)
+
+return(odba)
+}
+
+
+#
+# checking sensitivity of ODBA to moving average window size ----
+# this only needed for testing purposes, once best MA value is selected don't need to keep running this
+# currently calculating ODBA using the entire pulse, since the pulses are only ~ 6 sec.
+system.time(odba_ma5 <- calc_odba(acc_long, 5))
+odba_ma10 <- calc_odba(acc_long, 10)
+odba_ma20 <- calc_odba(acc_long, 20)
+odba_ma30 <- calc_odba(acc_long, 30)
+odba_ma40 <- calc_odba(acc_long, 40)
 
 odba_whole_pulse <- calc_odba_whole_pulse(acc_long)
 
@@ -135,33 +160,19 @@ ggplot(comp_odba_summary, aes(x = moving.av.window, y = mean.odba)) +
   geom_point()
 
 
-# function of piped functions to loop through multiple files ----
-
-
-full_odba_maker <- function(zbird, zmonth, zyear) {
-  
-odba <- read_bird_month_acc_rds(zbird, zmonth, zyear) %>% 
-  filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
-  dplyr::select(-timestamp, -study.timezone) %>% 
-  mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"),
-         date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% 
-  raw_acc_to_long_df() %>% 
-  calc_odba() %>% 
-  mutate(bird.id = zbird)
-
-return(odba)
-}
 
 
 
+# calculate ODBA for a single bird X month X year
 system.time(odba <- full_odba_maker("GREG_1", "9", "2017"))
 
-
+# calculate ODBA for all data
 system.time(odba <- pmap_df(list(bird_month$bird, bird_month$month, bird_month$year), full_odba_maker))
 
+
+# some individual files may cause errors 
+# using safely() helps ID bad files
 safe_full_odba_maker <- safely(full_odba_maker)
-
-
 
 system.time(odba <- pmap(list(bird_month$bird, bird_month$month, bird_month$year), safe_full_odba_maker))
 
