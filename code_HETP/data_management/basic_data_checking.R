@@ -9,6 +9,10 @@ library(lubridate)
 hetp_gps <- read.csv("data_files/GPSonly/HETP_GPSonly.csv")
 
 
+# make distinct list of bird ID and tag numbers
+# hetp_gps %>% distinct(individual.local.identifier, tag.local.identifier) %>% rename(bird = individual.local.identifier, tag = tag.local.identifier) %>% saveRDS("data_files/rds/birdID_tagnum")
+
+
 acc_data <- read.csv("data_files/ACConly/HETP_ACConly_201809.csv")
 
 
