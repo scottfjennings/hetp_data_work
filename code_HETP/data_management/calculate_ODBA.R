@@ -9,50 +9,79 @@ source("code_HETP/data_management/hetp_utility_functions.r")
 
 bird_month <- readRDS("data_files/rds/bird_month")
 
+acc_eqtn_vals <- readRDS("data_files/rds/odba/tag_axis_eqtn_values") %>%
+    dplyr::select(tag, axis, zerog, c_axis) %>% 
+    full_join(., readRDS("data_files/rds/birdID_tagnum") %>% mutate(tag = as.character(tag))) %>% 
+    mutate(axis = gsub("acc.", "", axis))
+
+acc_axes = c("x", "y", "z")
+ 
+acc_files <- list.files("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/rds/bird_month_acc/") %>% 
+  data.frame() %>% 
+  rename(zfile = 1) %>% 
+  filter(!grepl('GREG_6', zfile)) %>% # accidentally only activated 2 axes for greg 6, so no odba
+  mutate(acc = "acc")
+
+odba_files <- list.files("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/rds/bird_month_odba/") %>% 
+  data.frame() %>% 
+  rename(zfile = 1) %>% 
+  mutate(odba = "odba")
+
+zzz <- anti_join(acc_files %>% mutate(zfile = gsub("ACC_", "", zfile)),
+                 odba_files %>% mutate(zfile = gsub("ODBA_", "", zfile)))
+
 
 # read_bird_month_acc_rds() is in hetp_utility_functions.R
 # monthly rds files created by clip_write_data_files.R
 zbird = "GREG_2"
 zmonth = 8
 zyear = 2017
-bird_acc <- read_bird_month_acc_rds(zbird, zmonth, zyear) %>% 
-  filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
-  dplyr::select(-timestamp, -study.timezone) %>% 
-  mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"),
-         date = as.Date(timestamp, tz = "America/Los_Angeles"),
-         samples.per.axis = (str_count(as.character(eobs.accelerations.raw), " ") + 1)/3) %>% 
-  separate(eobs.accelerations.raw, into = paste("acc", rep(acc_axes, samples_per_axis), rep(1:samples_per_axis, each = length(acc_axes)), sep = "_"))
-
- samples_per_axis <- ((str_count(as.character(bird_acc$eobs.accelerations.raw), " ") %>% data.frame() %>% distinct() + 1)/3)[[1]]
- 
-# bird_acc <- bird_acc %>% mutate(samples = (str_count(as.character(bird_acc$eobs.accelerations.raw), " ")), samples_per_axis = (samples + 1)/3)
 
 
+# define functions ----
 raw_acc_to_long_df <- function(zacc) {
-  
- acc_axes = c("x", "y", "z")
 
- samples_per_axis <- ((str_count(as.character(zacc$eobs.accelerations.raw), " ") %>% data.frame() %>% distinct() + 1)/length(acc_axes))[[1]]
+
+samples_per_axis <- ((str_count(as.character(zacc$eobs.accelerations.raw), " ") %>% data.frame() %>% max() + 1)/length(acc_axes))[[1]]
  
-  bird_acc_sep <- zacc %>% 
-  dplyr::select(event.id, individual.local.identifier, study.local.timestamp, eobs.accelerations.raw, -eobs.acceleration.axes, -eobs.acceleration.sampling.frequency.per.axis) %>% 
-  separate(eobs.accelerations.raw, into = paste("acc", rep(acc_axes, samples_per_axis), rep(1:samples_per_axis, each = length(acc_axes)), sep = "_"))
+bird_acc_sep <- zacc %>% 
+  dplyr::select(event.id, bird = individual.local.identifier, study.local.timestamp, eobs.accelerations.raw, -eobs.acceleration.axes, -eobs.acceleration.sampling.frequency.per.axis) %>% 
+  separate(eobs.accelerations.raw, into = paste(rep(acc_axes, samples_per_axis), rep(1:samples_per_axis, each = length(acc_axes)), sep = "_"))
 
 bird_acc_sep_long <- bird_acc_sep %>% 
-  pivot_longer(contains("acc"), names_to = "axis.num", values_to = "acc.raw") %>% 
-  separate(axis.num, into = c("trash", "axis", "sample.num")) %>% 
+  pivot_longer(contains(c("x_", "y_", "z_")), names_to = "axis.num", values_to = "acc.raw") %>% 
+  mutate(acc.raw = as.numeric(acc.raw))
+
+
+bird_acc_sep_long_sep <- bird_acc_sep_long %>% 
+  separate(axis.num, into = c("axis", "sample.num")) %>% 
   mutate(sample.num = as.numeric(sample.num),
          acc.raw = as.numeric(acc.raw)) %>% 
-  filter(!is.na(acc.raw)) %>% 
-  dplyr::select(-trash)
-
+  filter(!is.na(acc.raw))
 }
 
 # acc_long <- raw_acc_to_long_df(bird_acc)
 
 
+
+accel_raw2mss <- function(acc_df) {
+  # this is the formula for converting raw ACC values to acceleration in m/s/s
+  # from 2017-03-17_e-obs system manual_V1.2.pdf page 63
+  # n_axis is any given raw acc value to be converted
+  # n_axis_0g is the tag-specific value for this axis when this axis is perpendicular to gravity
+  # c_axis is the average difference between this tag's n_axis_0g and the value when the axis is parallel to gravity (averaged across right-side-up and up-side-down); this calculated with function accel_raw2c()
+  # 9.81 is gravity constant
+
+  acc_w_eqtn_vals <- left_join(acc_df, acc_eqtn_vals, by = c("bird", "axis")) %>% 
+    mutate(acc_in_g = (acc.raw - zerog) * c_axis,
+           acc_in_mss = (acc.raw - zerog) * c_axis * 9.81)
+  
+  }
+  
+
+
 # calculate ODBA using difference between each value and a moving average
-calc_odba <- function(acc_long) {
+# calc_odba <- function(acc_long) {
 ma.window = 30
       ma <- function(x, n = ma.window){stats::filter(x, rep(1 / n, n), sides = 2)} # moving average function, from: https://stackoverflow.com/questions/743812/calculating-moving-average
 
@@ -83,16 +112,16 @@ calc_odba_whole_pulse <- function(acc_long) {
  
 
 acc_ma <- acc_long %>% 
-  arrange(individual.local.identifier, study.local.timestamp, axis, sample.num) %>% 
-  group_by(individual.local.identifier, study.local.timestamp, axis) %>% 
-  mutate(axis.ma = mean(acc.raw),
+  arrange(bird, study.local.timestamp, axis, sample.num) %>% 
+  group_by(bird, study.local.timestamp, axis) %>% 
+  mutate(axis.ma = mean(acc_in_mss),
          moving.av.window = "whole.pulse") %>% 
   filter(!is.na(axis.ma)) %>% 
-  mutate(accel = acc.raw - axis.ma) %>% 
+  mutate(accel = acc_in_mss - axis.ma) %>% 
   ungroup()
 
 odba_timestamp <- acc_ma %>% 
-  group_by(individual.local.identifier, study.local.timestamp) %>% 
+  group_by(bird, study.local.timestamp) %>% 
   summarise(odba.timestamp = sum(abs(accel))) %>% 
   ungroup()
 
@@ -102,18 +131,20 @@ return(odba_timestamp)
 # function of piped functions to loop through multiple files ----
 
 
-full_odba_maker <- function(zbird, zmonth, zyear) {
+full_odba_maker <- function(zfile) {
   
-odba <- read_bird_month_acc_rds(zbird, zmonth, zyear) %>% 
-  filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
-  dplyr::select(-timestamp, -study.timezone) %>% 
-  mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"),
-         date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% 
-  raw_acc_to_long_df() %>% 
-  calc_odba() %>% 
-  mutate(bird.id = zbird)
+  outfile <- gsub("ACC", "ODBA", zfile)
+  
+readRDS(paste("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/rds/bird_month_acc/", zfile, sep = "")) %>% # 8.75 sec
+  filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% # 8.75 sec
+  #dplyr::select(-timestamp, -study.timezone) %>% # 12.03 sec, 11.09
+  #mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"), date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% # 11.16, 11.01
+  raw_acc_to_long_df() %>% # 27.86
+  accel_raw2mss() %>% 
+  calc_odba_whole_pulse() %>% 
+  mutate(bird.month.year = zfile) %>% 
+    saveRDS(paste("data_files/rds/bird_month_odba/", outfile, sep = ""))
 
-return(odba)
 }
 
 
@@ -151,13 +182,56 @@ ggplot(comp_odba_summary, aes(x = moving.av.window, y = mean.odba)) +
 
 
 
-
+# 
 
 # calculate ODBA for a single bird X month X year
-system.time(odba <- full_odba_maker("GREG_1", "9", "2017"))
+system.time(odba <- full_odba_maker("GREG_2", "1", "2018"))
 
 # calculate ODBA for all data
-system.time(odba <- pmap_df(list(bird_month$bird, bird_month$month, bird_month$year), full_odba_maker))
+system.time(odba <- map(acc_files[13:20], full_odba_maker))
+
+
+# some acc files are bigger and need extra splitting (GREG_1)
+# processing by day 
+
+zfile = "GREG_1_ACC_9_2017"
+outfile <- gsub("ACC", "ODBA", zfile)
+  
+zacc <- readRDS(paste("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/rds/bird_month_acc/", zfile, sep = "")) %>% # 8.75 sec
+  filter(eobs.acceleration.axes == "XYZ", eobs.acceleration.sampling.frequency.per.axis == 10) %>% 
+  mutate(date = date(study.local.timestamp))
+
+zacc_distinct_days <- distinct(zacc, date) 
+
+
+odba_maker_by_day <- function(zday) {
+zacc_day <- zacc %>% 
+  filter(date == zday)
+
+samples_per_axis <- ((str_count(as.character(zacc_day$eobs.accelerations.raw), " ") %>% data.frame() %>% max() + 1)/length(acc_axes))[[1]]
+ 
+bird_acc_sep <- zacc_day %>% 
+  dplyr::select(event.id, bird = individual.local.identifier, study.local.timestamp, eobs.accelerations.raw, -eobs.acceleration.axes, -eobs.acceleration.sampling.frequency.per.axis) %>% 
+  separate(eobs.accelerations.raw, into = paste(rep(acc_axes, samples_per_axis), rep(1:samples_per_axis, each = length(acc_axes)), sep = "_"))
+
+bird_acc_sep_long <- bird_acc_sep %>% 
+  pivot_longer(contains(c("x_", "y_", "z_")), names_to = "axis.num", values_to = "acc.raw") %>% 
+  mutate(acc.raw = as.numeric(acc.raw))
+
+bird_acc_sep_long_sep <- bird_acc_sep_long %>% 
+  separate(axis.num, into = c("axis", "sample.num"))
+
+odba1 <- bird_acc_sep_long_sep %>% 
+  mutate(sample.num = as.numeric(sample.num),
+         acc.raw = as.numeric(acc.raw)) %>% 
+  filter(!is.na(acc.raw)) %>% 
+  accel_raw2mss() %>% 
+  calc_odba_whole_pulse() %>% 
+  mutate(bird.month.year = zfile)
+}
+
+system.time(map_df(zacc_distinct_days$date, odba_maker_by_day)%>% 
+    saveRDS(paste("data_files/rds/bird_month_odba/", outfile, sep = "")))
 
 
 # some individual files may cause errors 
