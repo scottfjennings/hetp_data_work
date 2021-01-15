@@ -253,3 +253,12 @@ odba_error <- readRDS("data_files/rds/odba/odba_error_2020-08-27")
 
 
 
+## combine all bird month odba files
+
+read_bird_month_odba <- function(odbafile) {
+odba <- readRDS(paste("data_files/rds/bird_month_odba/", odbafile, sep = ""))
+}
+
+all_odba <- map_df(odba_files$zfile, read_bird_month_odba)
+
+

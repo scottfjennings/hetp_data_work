@@ -20,6 +20,7 @@ the few files that might be regularly used prior to formal analysis or further p
 * calculate ODBA:    
   1. create monthly RDS files and summaries with clip_write_data_files.R  
   2. do actual calculations with calculate_ODBA.R  
+  3. add_covariates.R to combine ODBA with GPS data
   
 * add tide level, daylight and other covariates to GPS data:  
   1. interpolate_bird_tides.R
