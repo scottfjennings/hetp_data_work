@@ -31,8 +31,36 @@ source("C:/Users/scott.jennings/Documents/Projects/water_levels/tides/code/tide_
 blakes_offset_1hr <- readRDS("C:/Users/scott.jennings/Documents/Projects/water_levels/tides/generated/blakes_offset_1hr")
   
 
+# make intertidal availability index
 
+mllw_index <- blakes_offset_1hr %>% 
+  summarise(mllw.index = abs(min(water.level)))
 
+depth_index <- blakes_offset_1hr %>% 
+  dplyr::select(date, datetime, water.level) %>% 
+  mutate(wl.index = max(water.level) - water.level,
+         wl.index2 = (wl.index^2))
+
+intertidal_avail_index <- depth_index %>% 
+  group_by(date) %>% 
+  summarise(intertidal.avail.index = mean(wl.index2),
+            num = n(),
+            mllw.index = mllw_index$mllw.index) %>% 
+  ungroup() %>% 
+  mutate(intertidal.avail.index = intertidal.avail.index - min(intertidal.avail.index))
+
+# plot for spot checking
+full_join(depth_index, intertidal_avail_index) %>% 
+  filter(month(date) == 1, year(date) == 2019) %>% 
+  ggplot() +
+  geom_line(aes(x = datetime, y = water.level)) +
+  geom_point(aes(x = datetime, y = intertidal.avail.index)) +
+  geom_hline(aes(yintercept = mllw.index))
+
+# spot checking looks good
+saveRDS(intertidal_avail_index, "data_files/rds/intertidal_avail_index")
+
+#
                         
 bl_hl <- map2_df("BlakesLanding/BlakesLanding_HL/",
                  list.files("C:/Users/scott.jennings/Documents/Projects/water_levels/tides/downloaded/BlakesLanding/BlakesLanding_HL"),
