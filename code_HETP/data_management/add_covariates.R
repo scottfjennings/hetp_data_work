@@ -46,7 +46,7 @@ df.sp <- SpatialPoints(pts, proj4string=CRS("+proj=longlat +datum=WGS84"))
 dawn = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dawn", POSIXct.out = TRUE))
 dusk = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dusk", POSIXct.out = TRUE))
   
-dawn.dusk <- cbind(select(dawn, dawn.time = time), select(dusk, dusk.time = time))
+dawn.dusk <- cbind(dplyr::select(dawn, dawn.time = time), dplyr::select(dusk, dusk.time = time))
 hetp_dawn.dusk <- cbind(df, dawn.dusk) 
 }
 
