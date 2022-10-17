@@ -2,11 +2,34 @@
 
 library(tidyverse)
 library(lubridate)
+library(here)
 
 
 # GPS data right form movebank
 
 hetp_gps <- read.csv("data_files/GPSonly/HETP_GPSonly.csv")
+
+
+# read GPS data downloaded from movebank, add dawn/dusk times and classify each point as in daylight or not, and write to RDS ----
+greg_gps <- read.csv("C:/Users/scott.jennings/Documents/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly.csv") 
+
+df <- greg_gps  %>% 
+  mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"),
+         date = as.Date(timestamp, tz = "America/Los_Angeles")) %>%
+  dplyr::select(event.id, "location_lat" = location.lat, "location_long" = location.long, timestamp, "bird" = individual.local.identifier) %>% 
+  filter(!is.na(location_lat) | !is.na(location_long)) %>% 
+  filter(location_long < -100) %>% 
+  filter(location_lat > 20) 
+
+df2 <- df %>% 
+  add_dawn_dusk()
+
+df3 <- df2 %>% 
+  assign_inlight()
+
+saveRDS(df3, here("data_files/GPS_with_covariates/GPS_dawn_dusk"))
+
+
 
 
 # make distinct list of bird ID and tag numbers
@@ -47,18 +70,6 @@ tag.fix.summary <- foo %>%
   summarise(mean.fix = mean(num.gps.fix),
             sd.fix = sd(num.gps.fix)) %>% 
   arrange(mean.fix)
-
-,
-            max.fix = max(num.gps.fix),
-            min.fix = min(num.gps.fix))
-
-
-###################
-
-foo <- table(bird_month_dist_summ$bird, bird_month_dist_summ$zmonth, bird_month_dist_summ$zyear) %>% data.frame()
-> View(foo)
-> foo <- arrange(foo, Var1, Var3)
-> foo <- arrange(foo, Var1, Var3, Var2)
 
 
 
