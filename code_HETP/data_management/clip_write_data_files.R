@@ -2,10 +2,11 @@
 
 library(tidyverse)
 library(lubridate)
+library(here)
+
+
 
 # read data downloaded from movebank, subset to bird X month X year chunks and write to RDS
-
-
 # GPS ----
 all_gps <- read.csv("C:/Users/scott.jennings/Documents/Projects/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly_201706_202007.csv") %>% 
   mutate(date = as.Date(as.character(study.local.timestamp)),
