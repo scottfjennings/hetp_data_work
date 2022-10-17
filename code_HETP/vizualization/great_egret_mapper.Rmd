@@ -1,0 +1,58 @@
+---
+title: "Great Egret mapper"
+output: html_document
+---
+```{r }
+
+library(tidyverse)
+library(devtools)
+library(ggmap)
+library(RColorBrewer)
+library(here)
+library(sp)
+library(plotly)
+library(leaflet)
+library(data.table)
+
+options(scipen = 999)
+
+
+```
+
+```{r}
+hetp <- fread(here("data_files/GPSonly/HETP_GPSonly.csv")) %>% 
+  select(bird = "tag-local-identifier", lon = "location-long", lat = "location-lat", timestamp = "study-local-timestamp") %>% 
+  drop_na() %>% 
+  data.frame()
+
+```
+
+```{r}
+
+
+
+labs <- lapply(seq(nrow(hetp)), function(i) {
+  paste0( '<p>', hetp[i, "bird"], '<p></p>', 
+          hetp[i, "timestamp"]) 
+})
+
+
+
+
+
+hetp %>%
+leaflet() %>%
+addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite") %>%
+addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+addLayersControl(baseGroups = c("World Imagery", "Toner Lite")) %>%
+addCircleMarkers(label = lapply(labs, htmltools::HTML),
+           labelOptions = labelOptions(textsize = "15px")) %>%
+setView(lat = 38.27, lng = -122.3, zoom = 9) %>%
+addMiniMap(
+    toggleDisplay = TRUE,
+    tiles = providers$Stamen.TonerLite
+    )
+
+
+
+```
