@@ -12,10 +12,13 @@ the few files that might be regularly used prior to formal analysis or further p
 
 * calculate_ODBA.R - calculate Overall Dynamic Body Acceleration from Movebank format Accelerometer data  
 
-* clip_write_data_files.R - separate full downloaded data (from Movebank) into 1 Bird X 1 month chunks; these chunks are a little easier for my laptop to work with than the full data sets.
+* clip_write_data_files.R - Basic data processing to make smaller data objects. reduce fields; separate full downloaded data (from Movebank) into 1 Bird X 1 month chunks; these chunks are a little easier for my laptop to work with than the full data sets.
 
 
 ## workflows  
+
+* basic data processing
+  1. run first chunk of code_HETP/data_management/clip_write_data_files.R
 
 * calculate ODBA:    
   1. create monthly RDS files and summaries with clip_write_data_files.R  
