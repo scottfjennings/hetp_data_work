@@ -2,71 +2,6 @@
 # 1 description ----
 ## functions to create some covariates and merge with hetp data
 
-## all these use a dataframe of hetp data, with at minumum the following fields:
-#$ timestamp
-#$ location_lat
-#$ location_long
-#$ local_identifier
-#$ event_id
-
-# can either import the downloaded csv from movebank, or use data_files/rds/bird_tides/bird_tides
-
-# 2 packages ----
-# if coming from interpolate_bird_tides.R, then tidyverse and lubridate will already be loaded
-library(tidyverse)
-library(lubridate)
-
-library(maptools)
-library(chron)
-
-
-# not sure what the next 10 lines are for 9/4/20 ----
-# start_date <- as.POSIXct("2017-06-08 11:30:23 PDT")
-# study_days <- as.POSIXct(seq(start_date, Sys.time(), by = 'day')) %>% 
-#   data.frame()
-
-# study_days_blake <- study_days %>% 
-#   rename(timestamp = 1) %>% 
-#   mutate(location_long = -122.9,
-#          location_lat = 38.2)
-
-# define functions ----
-
-# add dawn and dusk times, based on coordinates ----
-add_dawn_dusk<-function(df){
-# DESCRIPTION: calculates dawn and dusk for each GPS point (lat, long, date) 
-# INPUT: df = data frame that has at least columns timestamp, location_lat, location_long. NOTE makes df into spdf --- don't input a spdf
-# OUTPUT: spdf with same columns as input plus 2 columns (dawn.time, dusk.time). output CRS is "+proj=longlat +datum=WGS84"
-# REQUIRES: maptools
-# REQUIRED FOR: assigning inlight to each GPS point (Assign_inlight()); calcaulating the number of hours of eelgrass availability per day for Tomales Bay (add_eelgrass_hours_day())
- 
-pts <- cbind(df$location_long, df$location_lat)
-df.sp <- SpatialPoints(pts, proj4string=CRS("+proj=longlat +datum=WGS84"))
-
-dawn = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dawn", POSIXct.out = TRUE))
-dusk = data.frame(crepuscule(df.sp, df$timestamp, solarDep = 6, direction = "dusk", POSIXct.out = TRUE))
-  
-dawn.dusk <- cbind(dplyr::select(dawn, dawn.time = time), dplyr::select(dusk, dusk.time = time))
-hetp_dawn.dusk <- cbind(df, dawn.dusk) 
-}
-
-# hetp_dd <- add_dawn_dusk(hetp_use)
-
-# add inlight T/F for whether GPS location was recorded during daylight or not ----
-assign_inlight <- function(df) {
-# DESCRIPTION: assign daylight T or F to each point, based on fields created by add_dawn_dusk()
-# PURPOSE: 
-# INPUT: df = data frame with at least columns timestamp, dawn.time, dusk.time
-# OUTPUT: same as inpute plus 1 column (inlight T/F)
-
-df <- df %>% 
-  mutate(inlight = timestamp	%within%	interval(dawn.time, dusk.time))
-  return(df)
-}
-
-# hetp_dd_inlight <- assign.inlight(hetp_dd)
-
-
 
 # add ODBA ----
 
@@ -110,6 +45,17 @@ write.csv(blake_eelgrass_available, paste("data_files/habitat/blake_eelgrass_ava
 
 
 # pipe together functions ----
+
+
+#hetp_for_analysis 
+df <- readRDS("data_files/GPSonly/all_gps_20230806") %>%
+  filter(!is.na(location.long))
+  add_dawn_dusk() %>% 
+  assign_inlight()
+
+saveRDS(hetp_for_habitat_sel, "data_files/rds/ready_for_analysis/hetp_for_habitat_sel")
+
+
 
 hetp_for_habitat_sel <- readRDS("data_files/rds/bird_tides/bird_tides") %>% 
   mutate(date = as.Date(timestamp, tz = "America/Los_Angeles")) %>% 
