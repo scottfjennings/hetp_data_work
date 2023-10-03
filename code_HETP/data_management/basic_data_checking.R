@@ -3,6 +3,8 @@
 library(tidyverse)
 library(lubridate)
 library(here)
+library(maptools)
+library(chron)
 
 
 # GPS data right form movebank
@@ -11,16 +13,16 @@ hetp_gps <- read.csv("data_files/GPSonly/HETP_GPSonly.csv")
 
 
 # read GPS data downloaded from movebank, add dawn/dusk times and classify each point as in daylight or not, and write to RDS ----
-greg_gps <- read.csv("C:/Users/scott.jennings/Documents/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly.csv") 
 
-df <- greg_gps  %>% 
+df <- hetp_gps  %>% 
   mutate(timestamp = as.POSIXct(study.local.timestamp, tz = "America/Los_Angeles"),
          date = as.Date(timestamp, tz = "America/Los_Angeles")) %>%
-  dplyr::select(event.id, "location_lat" = location.lat, "location_long" = location.long, timestamp, "bird" = individual.local.identifier) %>% 
+  dplyr::select(event.id, "location_lat" = location.lat, "location_long" = location.long, timestamp, "bird" = individual.local.identifier, utm.easting, utm.northing, utm.zone, ground.speed) %>% 
   filter(!is.na(location_lat) | !is.na(location_long)) %>% 
   filter(location_long < -100) %>% 
   filter(location_lat > 20) 
 
+# need to load these function form add_covariates.R
 df2 <- df %>% 
   add_dawn_dusk()
 
