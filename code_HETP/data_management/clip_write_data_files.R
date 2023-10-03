@@ -12,11 +12,16 @@ source("https://raw.githubusercontent.com/scottfjennings/scotts_helper_functions
 # this is the basic first step coming from downloaded Movebank GPS data
 # data.table::fread is much faster for these big files than read.csv
 
-  all_gps <- fread("C:/Users/scott.jennings/OneDrive - Audubon Canyon Ranch/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly.csv", select = c("location-long", "location-lat", "eobs:horizontal-accuracy-estimate", "eobs:speed-accuracy-estimate", "tag-local-identifier", "individual-local-identifier", "utm-easting", "utm-northing", "utm-zone", "study-timezone", "study-local-timestamp"), check.names = TRUE) %>% 
+
+all_gps <- fread("C:/Users/scott.jennings/OneDrive - Audubon Canyon Ranch/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly.csv", check.names = TRUE)
+
+keep_fields = c("location-long", "location-lat", "eobs:horizontal-accuracy-estimate", "eobs:speed-accuracy-estimate", "ground-speed", "tag-local-identifier", "individual-local-identifier", "utm-easting", "utm-northing", "utm-zone", "study-timezone", "study-local-timestamp")
+
+  all_gps <- fread("C:/Users/scott.jennings/OneDrive - Audubon Canyon Ranch/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly.csv", select = keep_fields, check.names = TRUE) %>% 
   mutate(date = as.Date(as.character(study.local.timestamp)),
          study.local.timestamp = as.POSIXct(as.character(study.local.timestamp))) 
 
-  all_gps2 <- fread("C:/Users/scott.jennings/OneDrive - Audubon Canyon Ranch/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly_2022onward.csv", select = c("location-long", "location-lat", "eobs:horizontal-accuracy-estimate", "eobs:speed-accuracy-estimate", "tag-local-identifier", "individual-local-identifier", "utm-easting", "utm-northing", "utm-zone", "study-timezone", "study-local-timestamp"), check.names = TRUE) %>% 
+  all_gps2 <- fread("C:/Users/scott.jennings/OneDrive - Audubon Canyon Ranch/Projects/core_monitoring_research/hetp/hetp_data_work/data_files/GPSonly/HETP_GPSonly_2022onward.csv", select = keep_fields, check.names = TRUE) %>% 
     mutate(date = as.Date(as.character(study.local.timestamp)),
            study.local.timestamp = as.POSIXct(as.character(study.local.timestamp))) 
   
@@ -26,10 +31,6 @@ all_gps_out <- bind_rows(all_gps, all_gps2) %>%
   rename("timestamp" = study.local.timestamp, "latitude" = location.lat, "longitude" = location.long) %>% 
   filter(!is.na(latitude)) %>% 
   add_dawn_dusk_inlight()
-
-m.date <- max(all_gps_out$date)
-m.date <- gsub("-", "", m.date)
-
 
 saveRDS(all_gps_out, here("data_files/rds/gps_with_covariates"))
 
